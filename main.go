@@ -66,111 +66,53 @@ type CodeChallenges struct {
 }
 
 func main() {
+	// Set git identity
+	ExecCommand("git", "config", "--global", "user.name", os.Getenv("GITHUB_PUBLIC_NAME"))
+	ExecCommand("git", "config", "--global", "user.email", os.Getenv("GITHUB_EMAIL"))
+
 	// Clone the repo locally
-	if _, err := os.Stat("codewars_log"); os.IsNotExist(err) {
-		cmd := exec.Command("git", "clone", "https://github.com/BenIsenstein/codewars_log")
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Fatal(err, string(output))
-		}
-		fmt.Println(string(output))
+	if _, err := os.Stat(os.Getenv("GITHUB_REPO_NAME")); os.IsNotExist(err) {
+		ExecCommand("git", "clone", "https://"+os.Getenv("GITHUB_USERNAME")+":"+os.Getenv("GITHUB_TOKEN")+"@github.com/"+os.Getenv("GITHUB_USERNAME")+"/"+os.Getenv("GITHUB_REPO_NAME")+".git")
 	}
 
 	// Enter the repo
-	err := os.Chdir("codewars_log")
+	err := os.Chdir(os.Getenv("GITHUB_REPO_NAME"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Set git username
-	cmd := exec.Command("git", "config", "--global", "user.name", os.Getenv("GITHUB_PUBLIC_NAME"))
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Fatal(err, string(output))
-	}
-	fmt.Println(string(output))
-
-	// Set git email
-	cmd = exec.Command("git", "config", "--global", "user.email", os.Getenv("GITHUB_EMAIL"))
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		log.Fatal(err, string(output))
-	}
-	fmt.Println(string(output))
-
-	// Add github personal access token to the repo url
-	cmd = exec.Command("git", "remote", "set-url", "origin", "https://"+os.Getenv("GITHUB_USERNAME")+":"+os.Getenv("GITHUB_TOKEN")+"@github.com/BenIsenstein/codewars_log.git")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		log.Fatal(err, string(output))
-	}
-	fmt.Println(string(output))
 
 	// Fetch recent code challenges from Codewars
-	response, err := http.Get("https://www.codewars.com/api/v1/users/BenIsenstein/code-challenges/completed")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var data CodeChallenges
-	if err := json.Unmarshal(body, &data); err != nil {
-		log.Fatal(err)
-	}
+	data := HttpGetJSON[CodeChallenges]("https://www.codewars.com/api/v1/users/" + os.Getenv("CODEWARS_USERNAME") + "/code-challenges/completed")
 
 	for _, challenge := range data.Data {
-		res, err := http.Get("https://www.codewars.com/api/v1/code-challenges/" + challenge.Id)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		defer res.Body.Close()
-
-		body, err := io.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var metadata CodeChallengeMetadata
-		if err := json.Unmarshal(body, &metadata); err != nil {
-			log.Fatal(err)
-		}
+		metadata := HttpGetJSON[CodeChallengeMetadata]("https://www.codewars.com/api/v1/code-challenges/" + challenge.Id)
 
 		for _, lang := range challenge.CompletedLanguages {
 			// Make directories for new languages
 			if _, err := os.Stat(lang); os.IsNotExist(err) {
 				err := os.Mkdir(lang, 0755)
-
 				if err != nil {
 					log.Fatal(err)
 				}
 			}
 
-			// Make files for new code challenges
-			if _, err := os.Stat(filepath.Join(lang, challenge.Slug+".md")); os.IsNotExist(err) {
-				file, err := os.Create(filepath.Join(lang, challenge.Slug+".md"))
-				if err != nil {
-					log.Fatal(err)
-				}
-				defer file.Close()
+			// Write files for code challenges
+			kataFile, err := os.Create(filepath.Join(lang, challenge.Slug+".md"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer kataFile.Close()
 
-				t, err := time.Parse(time.RFC3339, challenge.CompletedAt)
-				if err != nil {
-					log.Fatal(err)
-				}
+			t, err := time.Parse(time.RFC3339, challenge.CompletedAt)
+			if err != nil {
+				log.Fatal(err)
+			}
 
-				content := "# " + challenge.Name + "\n\n" + "[Train this kata](" + metadata.Url + ")" + "\n\n" + "Completed on " + t.UTC().Format("January 2, 2006 at 3:04:05 PM UTC") + "\n\n" + metadata.Description
-				_, err = file.WriteString(content)
-				if err != nil {
-					log.Fatal(err)
-				}
+			content := "# " + challenge.Name + "\n\n" + "[Train this kata](" + metadata.Url + ")" + "\n\n" + "Completed on " + t.UTC().Format("January 2, 2006 at 3:04:05 PM UTC") + "\n\n" + metadata.Description
+
+			_, err = kataFile.WriteString(content)
+			if err != nil {
+				log.Fatal(err)
 			}
 		}
 	}
@@ -181,7 +123,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Iterate over the entries and print only directories
 	for _, entry := range entries {
 		if entry.IsDir() {
 			readme, err := os.Create(filepath.Join(entry.Name(), "README.md"))
@@ -204,24 +145,36 @@ func main() {
 		}
 	}
 
-	cmd = exec.Command("git", "add", ".")
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		log.Fatal(err, string(output))
-	}
-	fmt.Println(string(output))
+	ExecCommand("git", "add", ".")
+	ExecCommand("git", "commit", "-m", "chore: update log")
+	ExecCommand("git", "push")
+}
 
-	cmd = exec.Command("git", "commit", "-m", "chore: update log")
-	output, err = cmd.CombinedOutput()
+func ExecCommand(commands ...string) {
+	cmd := exec.Command(commands[0], commands[1:]...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatal(err, string(output))
 	}
 	fmt.Println(string(output))
+}
 
-	cmd = exec.Command("git", "push", "-u", "origin", "HEAD")
-	output, err = cmd.CombinedOutput()
+func HttpGetJSON[T any](url string) T {
+	response, err := http.Get(url)
 	if err != nil {
-		log.Fatal(err, string(output))
+		log.Fatal(err)
 	}
-	fmt.Println(string(output))
+	defer response.Body.Close()
+
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var data T
+	if err := json.Unmarshal(body, &data); err != nil {
+		log.Fatal(err)
+	}
+
+	return data
 }
