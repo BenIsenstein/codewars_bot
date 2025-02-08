@@ -74,13 +74,6 @@ func main() {
 			log.Fatal(err, string(output))
 		}
 		fmt.Println(string(output))
-
-		cmd = exec.Command("git", "remote", "set-url", "origin", "https://"+os.Getenv("GITHUB_TOKEN")+"@github.com/BenIsenstein/codewars_log.git")
-		output, err = cmd.CombinedOutput()
-		if err != nil {
-			log.Fatal(err, string(output))
-		}
-		fmt.Println(string(output))
 	}
 
 	// Enter the repo
@@ -88,6 +81,30 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Set git username
+	cmd := exec.Command("git", "config", "--global", "user.name", os.Getenv("GITHUB_PUBLIC_NAME"))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Fatal(err, string(output))
+	}
+	fmt.Println(string(output))
+
+	// Set git email
+	cmd = exec.Command("git", "config", "--global", "user.email", os.Getenv("GITHUB_EMAIL"))
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Fatal(err, string(output))
+	}
+	fmt.Println(string(output))
+
+	// Add github personal access token to the repo url
+	cmd = exec.Command("git", "remote", "set-url", "origin", "https://"+os.Getenv("GITHUB_USERNAME")+":"+os.Getenv("GITHUB_TOKEN")+"@github.com/BenIsenstein/codewars_log.git")
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Fatal(err, string(output))
+	}
+	fmt.Println(string(output))
 
 	// Fetch recent code challenges from Codewars
 	response, err := http.Get("https://www.codewars.com/api/v1/users/BenIsenstein/code-challenges/completed")
@@ -187,8 +204,8 @@ func main() {
 		}
 	}
 
-	cmd := exec.Command("git", "add", ".")
-	output, err := cmd.CombinedOutput()
+	cmd = exec.Command("git", "add", ".")
+	output, err = cmd.CombinedOutput()
 	if err != nil {
 		log.Fatal(err, string(output))
 	}
