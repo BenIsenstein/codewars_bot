@@ -1,0 +1,15 @@
+{
+    "$schema": "https://railway.app/railway.schema.json",
+    "build": {
+        "nixpacksPlan": {
+            "phases": {
+                "setup": {
+                    "nixPkgs": ["...","git"]
+                }
+            }
+        }
+    },
+    "deploy": {
+        "cronSchedule": "*/5 * * * *"
+    }
+}
