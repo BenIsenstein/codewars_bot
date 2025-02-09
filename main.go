@@ -119,25 +119,25 @@ func main() {
 	}
 
 	// Add a README.md in each language directory
-	entries, err := os.ReadDir(".")
+	langs, err := os.ReadDir(".")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			readme, err := os.Create(filepath.Join(entry.Name(), "README.md"))
+	for _, lang := range langs {
+		if lang.IsDir() {
+			readme, err := os.Create(filepath.Join(lang.Name(), "README.md"))
 			if err != nil {
 				log.Fatal(err)
 			}
 			defer readme.Close()
 
-			dir, err := os.ReadDir(entry.Name())
+			dir, err := os.ReadDir(lang.Name())
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			content := "# Training " + entry.Name() + " on Codewars\n\n" + "As of " + time.Now().UTC().Format("January 2, 2006") + ", I have trained " + fmt.Sprint(len(dir)) + " problems in " + entry.Name() + " on codewars.com."
+			content := "# Training " + lang.Name() + " on Codewars\n\n" + "I have trained " + fmt.Sprint(len(dir)) + " problems in " + lang.Name() + " on codewars.com."
 
 			_, err = readme.WriteString(content)
 			if err != nil {
