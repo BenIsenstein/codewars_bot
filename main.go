@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -146,17 +147,22 @@ func main() {
 	}
 
 	ExecCommand("git", "add", ".")
-	ExecCommand("git", "commit", "-m", "chore: update log")
-	ExecCommand("git", "push")
+
+	gitStatus := strings.TrimSpace(string(ExecCommand("git", "status", "--porcelain")))
+	if gitStatus != "" {
+		ExecCommand("git", "commit", "-m", "chore: update log")
+		ExecCommand("git", "push")
+	}
 }
 
-func ExecCommand(commands ...string) {
+func ExecCommand(commands ...string) []byte {
 	cmd := exec.Command(commands[0], commands[1:]...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Fatal(err, string(output))
 	}
 	fmt.Println(string(output))
+	return output
 }
 
 func HttpGetJSON[T any](url string) T {
